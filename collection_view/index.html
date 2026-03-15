@@ -14,13 +14,14 @@
             font-weight: normal;
             font-style: normal;
         }
-        .fa-extra-mode-osu::before { content: '\e800'; font-family: 'osu-extra'; }
-        .fa-extra-mode-taiko::before { content: '\e801'; font-family: 'osu-extra'; }
-        .fa-extra-mode-fruits::before { content: '\e802'; font-family: 'osu-extra'; }
-        .fa-extra-mode-mania::before { content: '\e803'; font-family: 'osu-extra'; }
+        .fa-extra-mode-osu::before { content: '\e800'; font-family: 'osu-extra'; font-style: normal; }
+        .fa-extra-mode-taiko::before { content: '\e801'; font-family: 'osu-extra'; font-style: normal; }
+        .fa-extra-mode-fruits::before { content: '\e802'; font-family: 'osu-extra'; font-style: normal; }
+        .fa-extra-mode-mania::before { content: '\e803'; font-family: 'osu-extra'; font-style: normal; }
         body { overflow: hidden; }
         .preview-container { transition: background-color 0.5s ease; }
         .modal-backdrop { transition: background-color 0.3s ease; }
+        #modeButtons { flex-wrap: wrap; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -58,9 +59,12 @@
                     <div class="text-sm font-bold flex items-center">
                         <i class="fas fa-list mr-2 text-blue-500"></i>谱面列表
                     </div>
-                    <button onclick="openSettings()" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm transition">
-                        <i class="fas fa-cog mr-1"></i>设置
-                    </button>
+                    <div class="flex gap-2">
+                        <input type="text" id="searchInput" placeholder="搜索谱面..." class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-500" oninput="handleSearch()">
+                        <button onclick="openSettings()" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm transition">
+                            <i class="fas fa-cog mr-1"></i>设置
+                        </button>
+                    </div>
                 </div>
                 <div class="text-gray-600 text-xs mb-2" id="itemSummary"></div>
                 <div class="flex-1 overflow-auto border border-gray-200 rounded">

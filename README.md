@@ -111,7 +111,7 @@ runtime/ui_settings.json
 
 ## 打包发布
 
-如果你想重新打包成“多文件、双击 exe 即可运行”的版本，可以直接执行：
+如果你想重新打包成"多文件、双击 exe 即可运行"的版本，可以直接执行：
 
 ```powershell
 .\build.ps1
@@ -119,10 +119,12 @@ runtime/ui_settings.json
 
 打包脚本会自动完成这些事：
 
-- 安装 / 更新 Python 打包依赖
 - 用 `dotnet publish` 生成自包含的 C# 提取器
+- 安装 / 更新 Python 打包依赖
 - 用 `PyInstaller --onedir` 打包 Python 图形界面
 - 使用 `assets/logo.ico` 作为应用图标
+
+注意：打包前必须先构建 C# 提取器，构建脚本会自动完成。
 
 ## 开发与构建
 
@@ -141,6 +143,14 @@ osulazer-collection-view/
 
 ### 开发版启动
 
+开发前需要先构建 C# 提取器：
+
+```powershell
+.\build_extractor.ps1
+```
+
+然后安装 Python 依赖并启动：
+
 ```powershell
 pip install -r requirements.txt
 python app.py
@@ -148,10 +158,9 @@ python app.py
 
 开发版启动后：
 
-1. 点击“刷新检测”
+1. 点击"刷新检测"
 2. 确认检测到 `client.realm`
-3. 点击“加载”
-4. 程序会自动编译提取器并读取数据库
+3. 点击"加载"
 
 ### Python 环境
 
@@ -198,24 +207,35 @@ dotnet --list-sdks
 
 项目使用方式：
 
-- Python 主程序首次点击“加载”时，会自动调用 `dotnet build`
-- 编译成功后，生成的可执行程序集会放在：
+- 开发时需要先运行 `build_extractor.ps1` 构建提取器
+- 打包时 `build.ps1` 会自动构建提取器
 
-```text
-extractor/bin/Release/net9.0/
-```
-
-如果你想手动编译，可以运行：
+如果你想手动构建提取器，可以运行：
 
 ```powershell
-dotnet build extractor\CollectionRealmExtractor.csproj -c Release
+.\build_extractor.ps1
 ```
 
 如果你想单独测试提取器，可运行：
 
 ```powershell
-dotnet extractor\bin\Release\net9.0\CollectionRealmExtractor.dll .\client.realm .\runtime\extracted.json
+.\build\extractor_runtime\CollectionRealmExtractor.exe .\client.realm .\runtime\extracted.json
 ```
+
+### 版本发布
+
+项目使用 GitHub Actions 自动构建和发布。发布新版本的步骤：
+
+1. 更新代码并提交
+2. 创建版本标签：
+   ```powershell
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+3. GitHub Actions 会自动构建并创建 Release
+4. 构建产物会自动上传到 Release 页面
+
+标签格式：`v` + 版本号（如 `v1.0.0`、`v1.2.3`）
 
 ## 依赖版本
 

@@ -19,6 +19,7 @@ runtime/
 client.realm
 *.xlsx
 *.log
+cache.json
 
 # Build outputs
 build/

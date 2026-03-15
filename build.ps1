@@ -12,10 +12,7 @@ $distRoot = Join-Path $projectRoot "dist"
 $distApp = Join-Path $distRoot $appName
 $legacyDistApp = Join-Path $distRoot "collection-view"
 
-Write-Host "Installing Python dependencies..."
-python -m pip install -r requirements.txt pyinstaller
-
-Write-Host "Publishing self-contained C# extractor..."
+Write-Host "Building self-contained C# extractor..."
 if (Test-Path $extractorOut) {
     Remove-Item $extractorOut -Recurse -Force
 }
@@ -26,6 +23,9 @@ dotnet publish extractor\CollectionRealmExtractor.csproj `
     -p:PublishSingleFile=false `
     -p:PublishTrimmed=false `
     -o $extractorOut
+
+Write-Host "Installing Python dependencies..."
+python -m pip install -r requirements.txt pyinstaller
 
 Write-Host "Cleaning old packaged app..."
 if (Test-Path $distApp) {

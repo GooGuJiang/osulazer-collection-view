@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 import sys
 from pathlib import Path
 import webview
@@ -17,23 +19,48 @@ class API:
         self.base_dir = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else source_dir
         self.runtime_dir = self.base_dir / "runtime"
         self.cover_dir = self.runtime_dir / "covers"
+        self.cache_file = self.runtime_dir / "cache.json"
         
         self.extractor = RealmExtractor(self.base_dir, self.runtime_dir, resource_dir=self.resource_dir)
         self.cover_cache = CoverCache(self.cover_dir)
         
         self.data: ExtractedData | None = None
         self.detected_realm: Path | None = None
+        self.cached_collections = None
+
+    def load_cache(self):
+        if self.cache_file.exists():
+            try:
+                self.cached_collections = json.loads(self.cache_file.read_text(encoding="utf-8"))
+            except Exception:
+                self.cached_collections = None
+
+    def save_cache(self, collections):
+        try:
+            self.runtime_dir.mkdir(parents=True, exist_ok=True)
+            self.cache_file.write_text(json.dumps(collections, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
 
     def refresh_detected_realm(self):
         self.detected_realm = detect_realm_file(self.base_dir)
+        self.load_cache()
+        
+        if self.cached_collections:
+            status_suffix = "；已加载缓存数据，可直接使用或点击'加载'重新解析。"
+        else:
+            status_suffix = "，可以点击'加载'开始解析。" if self.detected_realm else "；当前状态：未检测到可用数据库。"
+        
         if self.detected_realm:
             return {
                 "detected": True,
-                "status": f"请将 {REALM_FILENAME} 手动复制到当前文件夹：{self.base_dir}；当前状态：已检测到 {REALM_FILENAME}，可以点击'加载'开始解析。"
+                "status": f"请将 {REALM_FILENAME} 手动复制到当前文件夹：{self.base_dir}；当前状态：已检测到 {REALM_FILENAME}" + status_suffix,
+                "cached": self.cached_collections
             }
         return {
             "detected": False,
-            "status": f"请将 {REALM_FILENAME} 手动复制到当前文件夹：{self.base_dir}；当前状态：未检测到可用数据库。"
+            "status": f"请将 {REALM_FILENAME} 手动复制到当前文件夹：{self.base_dir}" + status_suffix,
+            "cached": self.cached_collections
         }
 
     def load_realm(self):
@@ -54,6 +81,8 @@ class API:
                     "total_count": col.total_count,
                     "items": items_by_mode
                 })
+            
+            self.save_cache(collections)
             
             return {
                 "success": True,
@@ -93,7 +122,11 @@ class API:
         
         cover_path = self.cover_cache.get_cover_path(beatmap_set_id)
         if cover_path and cover_path.exists():
-            return {"success": True, "path": str(cover_path)}
+            try:
+                img_data = base64.b64encode(cover_path.read_bytes()).decode('utf-8')
+                return {"success": True, "path": f"data:image/jpeg;base64,{img_data}"}
+            except Exception:
+                return {"success": False}
         return {"success": False}
 
     def export_view(self, collection_name, mode, items, visible_columns):
@@ -149,6 +182,7 @@ class API:
 def launch():
     api = API()
     html_path = str(Path(__file__).parent / "index.html")
+    is_dev = not getattr(sys, "frozen", False)
     
     window = webview.create_window(
         "osu! 收藏夹查看器",
@@ -159,4 +193,7 @@ def launch():
         min_size=(1280, 800)
     )
     
-    webview.start()
+    if is_dev:
+        webview.start(debug=True)
+    else:
+        webview.start()

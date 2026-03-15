@@ -8,7 +8,8 @@ let state = {
     sortColumn: null,
     sortDesc: false,
     columns: {},
-    columnOrder: []
+    columnOrder: [],
+    searchQuery: ''
 };
 
 const MODES = ['osu', 'taiko', 'ctb', 'mania'];
@@ -66,6 +67,11 @@ async function refreshRealm() {
     const statusEl = document.getElementById('status');
     statusEl.innerHTML = `<i class="fas fa-${result.detected ? 'check-circle text-green-600' : 'info-circle text-blue-600'} mr-2"></i>${result.status}`;
     document.getElementById('loadBtn').disabled = !result.detected;
+    
+    if (result.cached) {
+        state.collections = result.cached;
+        refreshCollections();
+    }
 }
 
 async function loadRealm() {
@@ -144,6 +150,18 @@ function refreshBeatmaps() {
     }
     
     let items = state.selectedCollection.items[state.mode] || [];
+    
+    if (state.searchQuery) {
+        const query = state.searchQuery.toLowerCase();
+        items = items.filter(item =>
+            (item.name_original && item.name_original.toLowerCase().includes(query)) ||
+            (item.name && item.name.toLowerCase().includes(query)) ||
+            (item.artist && item.artist.toLowerCase().includes(query)) ||
+            (item.mapper && item.mapper.toLowerCase().includes(query)) ||
+            (item.difficulty_name && item.difficulty_name.toLowerCase().includes(query))
+        );
+    }
+    
     if (state.sortColumn) {
         items = [...items].sort((a, b) => {
             const av = a[state.sortColumn];
@@ -372,6 +390,11 @@ function resetColumns() {
     refreshBeatmaps();
 }
 
+function handleSearch() {
+    state.searchQuery = document.getElementById('searchInput').value;
+    refreshBeatmaps();
+}
+
 async function exportView() {
     if (!state.selectedCollection || state.displayedItems.length === 0) {
         alert('无法导出：请先选择一个收藏夹。');
@@ -401,5 +424,6 @@ window.closeSettingsModal = closeSettingsModal;
 window.resetColumns = resetColumns;
 window.exportView = exportView;
 window.closeModal = closeModal;
+window.handleSearch = handleSearch;
 
 window.addEventListener('pywebviewready', init);

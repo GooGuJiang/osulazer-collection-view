@@ -1,0 +1,73 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+    
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Build C# extractor
+      run: |
+        dotnet publish extractor\CollectionRealmExtractor.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=false `
+          -p:PublishTrimmed=false `
+          -o build\extractor_runtime
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt pyinstaller
+    
+    - name: Build with PyInstaller
+      run: |
+        python -m PyInstaller osulazer-collection-view.spec --noconfirm --clean
+    
+    - name: Prepare distribution
+      run: |
+        New-Item -ItemType Directory -Force -Path dist\osulazer-collection-view\runtime\covers
+        Copy-Item README.md dist\osulazer-collection-view\README.md -Force
+    
+    - name: Archive release
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        Compress-Archive -Path dist\osulazer-collection-view\* -DestinationPath osulazer-collection-view-windows.zip
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: osulazer-collection-view-windows.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Upload artifact
+      if: "!startsWith(github.ref, 'refs/tags/')"
+      uses: actions/upload-artifact@v4
+      with:
+        name: osulazer-collection-view-windows
+        path: dist/osulazer-collection-view/
