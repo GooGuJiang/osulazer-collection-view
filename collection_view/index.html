@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>osu! 收藏夹查看器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="static/lib/fast-average-color.min.js"></script>
+    <style>
+        @font-face {
+            font-family: 'osu-extra';
+            src: url('static/extra.96448ca7.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+        }
+        .fa-extra-mode-osu::before { content: '\e800'; font-family: 'osu-extra'; }
+        .fa-extra-mode-taiko::before { content: '\e801'; font-family: 'osu-extra'; }
+        .fa-extra-mode-fruits::before { content: '\e802'; font-family: 'osu-extra'; }
+        .fa-extra-mode-mania::before { content: '\e803'; font-family: 'osu-extra'; }
+        body { overflow: hidden; }
+        .preview-container { transition: background-color 0.5s ease; }
+        .modal-backdrop { transition: background-color 0.3s ease; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app" class="flex flex-col h-screen p-3">
+        <div class="flex justify-between items-center mb-2 bg-white rounded-lg shadow-sm p-3">
+            <div class="text-blue-800 text-sm flex-1" id="status">
+                <i class="fas fa-circle-notch fa-spin mr-2"></i>正在初始化...
+            </div>
+            <div class="flex gap-2">
+                <button onclick="refreshRealm()" class="px-3 py-1.5 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm transition">
+                    <i class="fas fa-sync-alt mr-1"></i>刷新检测
+                </button>
+                <button id="loadBtn" onclick="loadRealm()" disabled class="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition">
+                    <i class="fas fa-download mr-1"></i>加载
+                </button>
+                <button id="exportBtn" onclick="exportView()" disabled class="px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm transition">
+                    <i class="fas fa-file-export mr-1"></i>导出
+                </button>
+            </div>
+        </div>
+        <div class="flex flex-1 gap-3 overflow-hidden">
+            <div class="w-80 flex flex-col bg-white rounded-lg shadow-sm p-3">
+                <div class="text-sm font-bold mb-2 flex items-center">
+                    <i class="fas fa-folder-open mr-2 text-blue-500"></i>收藏夹列表
+                </div>
+                <div class="flex gap-1.5 mb-2" id="modeButtons"></div>
+                <div class="text-gray-600 text-xs mb-2" id="collectionSummary">尚未加载数据。</div>
+                <div class="flex-1 overflow-y-auto border border-gray-200 rounded" id="collectionList"></div>
+                <div class="preview-container h-40 border border-gray-200 rounded mt-2 flex items-center justify-center overflow-hidden" id="preview">
+                    <span class="text-gray-400 text-sm"><i class="fas fa-image mr-2"></i>选择谱面后显示背景图</span>
+                </div>
+            </div>
+            <div class="flex-1 flex flex-col bg-white rounded-lg shadow-sm p-3">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-sm font-bold flex items-center">
+                        <i class="fas fa-list mr-2 text-blue-500"></i>谱面列表
+                    </div>
+                    <button onclick="openSettings()" class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 text-sm transition">
+                        <i class="fas fa-cog mr-1"></i>设置
+                    </button>
+                </div>
+                <div class="text-gray-600 text-xs mb-2" id="itemSummary"></div>
+                <div class="flex-1 overflow-auto border border-gray-200 rounded">
+                    <table class="w-full text-xs">
+                        <thead id="tableHead" class="bg-gray-100 sticky top-0"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50" id="detailModal" onclick="if(event.target===this) closeModal()">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] overflow-y-auto p-6 modal-content-inner">
+            <div class="text-lg font-bold mb-4 flex items-center" id="modalTitle">
+                <i class="fas fa-info-circle mr-2 text-blue-500"></i>
+            </div>
+            <img class="w-full rounded mb-4 hidden" id="modalCover" alt="谱面封面">
+            <div class="grid grid-cols-4 gap-3 mb-4" id="modalFields"></div>
+            <button onclick="closeModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition">
+                <i class="fas fa-times mr-1"></i>关闭
+            </button>
+        </div>
+    </div>
+    <div class="modal-backdrop hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50" id="settingsModal" onclick="if(event.target===this) closeSettingsModal()">
+        <div class="bg-white rounded-lg shadow-xl max-w-md max-h-[90vh] overflow-y-auto p-6">
+            <div class="text-lg font-bold mb-2 flex items-center">
+                <i class="fas fa-cog mr-2 text-blue-500"></i>列表设置
+            </div>
+            <div class="text-gray-600 text-xs mb-3">勾选后立即生效。</div>
+            <div id="columnSettings" class="space-y-2"></div>
+            <div class="mt-4 flex gap-2">
+                <button onclick="resetColumns()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">
+                    <i class="fas fa-undo mr-1"></i>恢复默认
+                </button>
+                <button onclick="closeSettingsModal()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition">
+                    <i class="fas fa-times mr-1"></i>关闭
+                </button>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
